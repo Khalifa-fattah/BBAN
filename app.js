@@ -309,41 +309,41 @@ window.removeVault=id=>{
   });
 };
 
-// Export Backup (Fixed for mobile / webview download reliability)
-$("exportVault").onclick=()=>{
-  const data={
-    app:"BBAN Generator",
-    version:1,
-    exportedAt:new Date().toISOString(),
-    banks:banks,
-    accounts:savedAccounts
+// Export Backup
+$("exportVault").onclick = () => {
+  const data = {
+    app: "BBAN Generator",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    banks: banks,
+    accounts: savedAccounts
   };
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:\"application/json\"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=url;
-  a.download="BBAN-backup.json";
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "BBAN-backup.json";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
   showToast("تم التصدير بنجاح", "تم تنزيل ملف النسخة الاحتياطية.");
 };
 
-// Import Backup (Robustified to handle files, arrays, objects, and reset file input reliably)
-$("importVault").onchange=async e=>{
-  const file=e.target.files[0];
-  if(!file){
-    e.target.value="";
+// Import Backup
+$("importVault").onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) {
+    e.target.value = "";
     return;
   }
-  try{
-    const text=await file.text();
-    const data=JSON.parse(text);
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
 
-    if(data && Array.isArray(data.banks)){
-      data.banks.forEach(importedBank=>{
-        if(importedBank && importedBank.id && !banks.some(b=>b.id===importedBank.id)){
+    if (data && Array.isArray(data.banks)) {
+      data.banks.forEach(importedBank => {
+        if (importedBank && importedBank.id && !banks.some(b => b.id === importedBank.id)) {
           banks.push(importedBank);
         }
       });
@@ -352,20 +352,20 @@ $("importVault").onchange=async e=>{
     }
 
     const accounts = Array.isArray(data) ? data : (data.accounts || data.vaults || data.savedAccounts || []);
-    if(!Array.isArray(accounts)) throw new Error("invalid backup format");
+    if (!Array.isArray(accounts)) throw new Error("invalid backup format");
 
-    const cleaned = accounts.filter(x=>x && typeof x.account==="string" && typeof x.bankId==="string")
-      .map(x=>({
+    const cleaned = accounts.filter(x => x && typeof x.account === "string" && typeof x.bankId === "string")
+      .map(x => ({
         id: x.id || makeId(),
         name: String(x.name || "حساب"),
         bankId: x.bankId,
         account: x.account
       }));
 
-    let addedCount=0, updatedCount=0;
-    cleaned.forEach(imp=>{
-      const existing=savedAccounts.find(a=>a.id===imp.id);
-      if(existing){ 
+    let addedCount = 0, updatedCount = 0;
+    cleaned.forEach(imp => {
+      const existing = savedAccounts.find(a => a.id === imp.id);
+      if (existing) { 
         Object.assign(existing, imp); 
         updatedCount++; 
       } else { 
@@ -377,10 +377,10 @@ $("importVault").onchange=async e=>{
     saveSavedAccounts();
     initSavedPage();
     showToast("تم الاستيراد بنجاح", `تمت إضافة ${addedCount} وتحديث ${updatedCount} من الحسابات، دون حذف أي بيانات موجودة.`);
-  }catch(err){
+  } catch (err) {
     showToast("ملف غير صالح", "تعذر قراءة النسخة الاحتياطية أو الملف غير متوافق.", "!");
-  }finally{
-    e.target.value="";
+  } finally {
+    e.target.value = "";
   }
 };
 
