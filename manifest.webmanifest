@@ -1,0 +1,19 @@
+{
+  "name": "مولد رقم BBAN",
+  "short_name": "BBAN",
+  "description": "أنشئ رقم BBAN من رقم الحساب وقواعد البنك",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8f6fc",
+  "theme_color": "#6d4bc1",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    }
+  ]
+}
