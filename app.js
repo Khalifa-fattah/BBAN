@@ -96,7 +96,6 @@ $("copyBtn").onclick=async()=>{
   }catch(e){showToast("تعذر النسخ", "اضغط مطولًا على الرقم لنسخه يدويًا", "!");}
 };
 
-// Fix #5: duplicate bank name check (case-insensitive, trimmed, excludes the bank being edited)
 function isDuplicateBankName(name, excludeId){
   const norm = name.trim().toLowerCase();
   return banks.some(b => b.id !== excludeId && (b.name || "").trim().toLowerCase() === norm);
@@ -104,7 +103,6 @@ function isDuplicateBankName(name, excludeId){
 
 $("saveBank").onclick=()=>{
   const data={name:$("bName").value.trim(),code:$("bCode").value.trim(),prefix:$("bPrefix").value.trim(),suffix:$("bSuffix").value.trim(),len:Number($("bLen").value)};
-  // Fix #4: require a whole positive integer length (rejects 0, negatives, decimals, NaN)
   const lenOk = Number.isInteger(data.len) && data.len > 0;
   if(!data.name||!/^[\d]*$/.test(data.prefix)||!/^[\d]*$/.test(data.suffix)||!lenOk){showToast("بيانات البنك غير مكتملة", "أكمل بيانات البنك بصورة صحيحة (طول الحساب يجب أن يكون رقمًا صحيحًا أكبر من صفر).", "!");return;}
   if(isDuplicateBankName(data.name, editId)){showToast("اسم البنك مكرر", "يوجد بنك آخر بنفس الاسم بالفعل.", "!");return;}
@@ -125,7 +123,6 @@ window.editBank=id=>{
 
 window.deleteBank=id=>{
  if(banks.length===1){showToast("لا يمكن الحذف", "يجب أن يبقى بنك واحد على الأقل.", "!");return;}
- // Fix #3: warn the user if accounts are still linked to this bank
  const linkedCount = savedAccounts.filter(a=>a.bankId===id).length;
  const sub = linkedCount>0
    ? `تحذير: هناك ${linkedCount} حساب/حسابات محفوظة مرتبطة بهذا البنك وستظهر كـ "بنك غير موجود" بعد الحذف. هل تريد المتابعة؟`
@@ -148,7 +145,7 @@ document.querySelectorAll(".tab").forEach(btn=>btn.onclick=()=>{
  if(btn.dataset.tab==="saved")initSavedPage();
 });
 
-function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function esc(s){return String(s??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 
 function populateVaultBanks(){
   $("vBank").innerHTML = banks.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join("");
@@ -186,11 +183,11 @@ function renderVault(){
           <div style="color:var(--muted);font-size:13px;margin-top:5px">${esc(bankName)}</div>
         </div>
       </div>
-      <div style="margin-top:14px;padding:12px;background:#f8f6fc;border-radius:12px">
+      <div style="margin-top:14px;padding:12px;background:var(--input-bg);border:1px solid var(--border);border-radius:12px">
         <div style="font-size:12px;color:var(--muted);margin-bottom:4px">رقم الحساب الأساسي</div>
         <div class="mono" style="font-size:17px;font-weight:700">${esc(x.account)}</div>
       </div>
-      <div style="margin-top:9px;padding:12px;background:#eadfff;border-radius:12px">
+      <div style="margin-top:9px;padding:12px;background:var(--result-bg);border:1px solid var(--border);border-radius:12px">
         <div style="font-size:12px;color:var(--muted);margin-bottom:4px">BBAN</div>
         <div class="mono" style="font-size:19px;font-weight:800;word-break:break-all">${b ? esc(bban) : '<span style="color:var(--danger)">تعذر الحساب — البنك المرتبط لم يعد موجودًا</span>'}</div>
       </div>
@@ -312,6 +309,7 @@ window.removeVault=id=>{
   });
 };
 
+// Export Backup (Fixed for mobile / webview download reliability)
 $("exportVault").onclick=()=>{
   const data={
     app:"BBAN Generator",
@@ -320,49 +318,70 @@ $("exportVault").onclick=()=>{
     banks:banks,
     accounts:savedAccounts
   };
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:\"application/json\"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
   a.href=url;
   a.download="BBAN-backup.json";
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showToast("تم التصدير بنجاح", "تم تنزيل ملف النسخة الاحتياطية.");
 };
 
+// Import Backup (Robustified to handle files, arrays, objects, and reset file input reliably)
 $("importVault").onchange=async e=>{
   const file=e.target.files[0];
-  if(!file)return;
+  if(!file){
+    e.target.value="";
+    return;
+  }
   try{
     const text=await file.text();
     const data=JSON.parse(text);
 
-    if(Array.isArray(data.banks)){
+    if(data && Array.isArray(data.banks)){
       data.banks.forEach(importedBank=>{
-        if(!banks.some(b=>b.id===importedBank.id)) banks.push(importedBank);
+        if(importedBank && importedBank.id && !banks.some(b=>b.id===importedBank.id)){
+          banks.push(importedBank);
+        }
       });
       saveBanks();
       renderBanks();
     }
 
-    const accounts=Array.isArray(data)?data:(data.accounts || []);
-    if(!Array.isArray(accounts))throw new Error("invalid");
-    const cleaned=accounts.filter(x=>x && typeof x.account==="string" && typeof x.bankId==="string")
-      .map(x=>({id:x.id||makeId(),name:String(x.name||"حساب"),bankId:x.bankId,account:x.account}));
+    const accounts = Array.isArray(data) ? data : (data.accounts || data.vaults || data.savedAccounts || []);
+    if(!Array.isArray(accounts)) throw new Error("invalid backup format");
+
+    const cleaned = accounts.filter(x=>x && typeof x.account==="string" && typeof x.bankId==="string")
+      .map(x=>({
+        id: x.id || makeId(),
+        name: String(x.name || "حساب"),
+        bankId: x.bankId,
+        account: x.account
+      }));
 
     let addedCount=0, updatedCount=0;
     cleaned.forEach(imp=>{
       const existing=savedAccounts.find(a=>a.id===imp.id);
-      if(existing){ Object.assign(existing, imp); updatedCount++; }
-      else { savedAccounts.push(imp); addedCount++; }
+      if(existing){ 
+        Object.assign(existing, imp); 
+        updatedCount++; 
+      } else { 
+        savedAccounts.push(imp); 
+        addedCount++; 
+      }
     });
 
     saveSavedAccounts();
     initSavedPage();
     showToast("تم الاستيراد بنجاح", `تمت إضافة ${addedCount} وتحديث ${updatedCount} من الحسابات، دون حذف أي بيانات موجودة.`);
   }catch(err){
-    showToast("ملف غير صالح", "تعذر قراءة النسخة الاحتياطية.", "!");
+    showToast("ملف غير صالح", "تعذر قراءة النسخة الاحتياطية أو الملف غير متوافق.", "!");
+  }finally{
+    e.target.value="";
   }
-  e.target.value="";
 };
 
 function initSavedPage(){
@@ -394,7 +413,7 @@ if (installBtn) {
     deferredPrompt = null;
     installBtn.classList.add("hidden");
   };
-}
+});
 
 window.addEventListener("appinstalled", () => {
   deferredPrompt = null;
