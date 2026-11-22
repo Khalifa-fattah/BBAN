@@ -373,7 +373,35 @@ function initSavedPage(){
 renderBanks();
 initSavedPage();
 
-// PWA Service Worker Registration
+// PWA Service Worker Registration & Install Prompt
+let deferredPrompt = null;
+const installBtn = $("installBtn");
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (installBtn) installBtn.classList.remove("hidden");
+});
+
+if (installBtn) {
+  installBtn.onclick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      showToast("تثبيت ناجح", "تم تثبيت تطبيق مولد BBAN بنجاح.");
+    }
+    deferredPrompt = null;
+    installBtn.classList.add("hidden");
+  };
+}
+
+window.addEventListener("appinstalled", () => {
+  deferredPrompt = null;
+  if (installBtn) installBtn.classList.add("hidden");
+  showToast("تم التثبيت", "تم تثبيت التطبيق على جهازك بنجاح.");
+});
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("sw.js").catch(err => {
