@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bban-cache-v1';
+const CACHE_NAME = 'bban-cache-v2';
 const ASSETS = [
   './',
   'index.html',
@@ -39,7 +39,4 @@ self.addEventListener('fetch', event => {
           return response;
         })
         .catch(() => cached);
-      return cached || networked;
-    })
-  );
-});
+      return cached || networked;\n    })\n  );\n});
