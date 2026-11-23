@@ -1,8 +1,9 @@
-const CACHE_NAME = 'bban-cache-v2';
+const CACHE_NAME = 'bban-cache-v4';
 const ASSETS = [
   './',
   'index.html',
   'style.css',
+  'qr.js',
   'app.js',
   'manifest.webmanifest',
   'icon.png'
@@ -26,6 +27,12 @@ self.addEventListener('activate', event => {
   );
 });
 
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
@@ -39,4 +46,7 @@ self.addEventListener('fetch', event => {
           return response;
         })
         .catch(() => cached);
-      return cached || networked;\n    })\n  );\n});
+      return cached || networked;
+    })
+  );
+});

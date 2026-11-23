@@ -16,21 +16,39 @@
   <div class="modal-card">
     <div class="modal-icon" id="modalIcon">🗑</div>
     <div class="modal-title" id="modalTitle">تأكيد الإجراء</div>
-    <div class="modal-sub" id="modalSub">هل أنت تأكيد تنفيذ هذا الإجراء؟</div>
+    <div class="modal-sub" id="modalSub">هل أنت متأكد من تنفيذ هذا الإجراء؟</div>
     <div class="modal-actions">
       <button class="btn secondary" id="modalCancel">إلغاء</button>
-      <button class="btn danger" id="modalConfirm">حذف</button>
+      <button class="btn danger" id="modalConfirm">تأكيد</button>
+    </div>
+  </div>
+</div>
+
+<div id="qrModal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-card">
+    <div class="modal-title" id="qrModalTitle">رمز الاستجابة السريعة (QR)</div>
+    <div class="modal-sub" id="qrModalSub">امسح الكود عبر الكاميرا للحصول على الرقم</div>
+    <div class="qr-wrapper" id="qrModalGraphic" style="margin:16px auto"></div>
+    <div class="mono" id="qrModalNum" style="font-size:17px;font-weight:800;margin-bottom:16px;word-break:break-all"></div>
+    <div class="modal-actions">
+      <button class="btn primary" id="qrModalCopy">📋 نسخ الرقم</button>
+      <button class="btn secondary" id="qrModalClose">إغلاق</button>
     </div>
   </div>
 </div>
 
 <div id="appToast" aria-live="polite">
- <div class="toastIcon">✓</div>
- <div class="toastText"><div class="toastTitle" id="toastTitle">تم نسخ BBAN بنجاح</div><div class="toastSub" id="toastSub">الرقم جاهز للصق والمشاركة</div></div>
- <button class="toastClose" id="toastClose" aria-label="إغلاق">×</button>
+  <div class="toastIcon">✓</div>
+  <div class="toastText"><div class="toastTitle" id="toastTitle">تم بنجاح</div><div class="toastSub" id="toastSub">تم تنفيذ العملية.</div></div>
+  <button class="toastClose" id="toastClose" aria-label="إغلاق">×</button>
 </div>
 
 <div class="container">
+  <div id="updateBanner" class="update-banner hidden">
+    <span>🚀 يتوفر تحديث جديد للتطبيق</span>
+    <button class="btn secondary btn-sm" id="updateAppBtn">تحديث الآن</button>
+  </div>
+
 <header>
   <h1>مولد رقم BBAN</h1>
   <div class="sub">أنشئ رقم BBAN من رقم الحساب وقواعد البنك التي تحددها أنت</div>
@@ -39,8 +57,9 @@
 
 <nav>
   <button class="tab active" data-tab="generator">المولد</button>
+  <button class="tab" data-tab="decoder">تفكيك BBAN</button>
   <button class="tab" data-tab="banks">البنوك</button>
-  <button class="tab" data-tab="saved">BBAN الخاصة بي</button>
+  <button class="tab" data-tab="saved">حساباتي المحفوظة</button>
 </nav>
 
 <section id="generator" class="panel">
@@ -50,14 +69,67 @@
     <select id="bankSelect"></select>
   </div>
   <div class="field">
-    <label>رقم الحساب</label>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+      <label style="margin:0">رقم الحساب</label>
+      <span id="accountCounter" class="counter-badge">0 / 0</span>
+    </div>
     <input id="account" inputmode="numeric" autocomplete="off" placeholder="اكتب رقم الحساب">
     <div class="hint" id="bankHint"></div>
   </div>
   <button class="btn primary" id="generate">احسب رقم BBAN</button>
   <div class="result" id="result">
-    <div class="num" id="resultNum"></div>
-    <div class="copy" id="copyBtn">اضغط للنسخ</div>
+    <span class="num hidden" id="resultNum"></span>
+    <div class="bban-chunks" id="resultChunks"></div>
+    <div class="actions" style="margin-top:14px;justify-content:center">
+      <button class="btn primary" id="copyBtn" style="flex:1">📋 نسخ BBAN</button>
+      <button class="btn secondary" id="copySpacesBtn">نسخ مع فواصل</button>
+      <button class="btn secondary" id="shareBtn">📤 مشاركة</button>
+      <button class="btn secondary" id="toggleQrBtn">📱 رمز QR</button>
+    </div>
+    <div id="resultQr" class="qr-container hidden">
+      <div class="qr-wrapper" id="qrOutput"></div>
+      <div class="hint">امسح الكود عبر الكاميرا لمشاركة رقم BBAN مباشرة</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<section id="decoder" class="panel hidden">
+<div class="card">
+  <h3>تفكيك والتحقق من رقم BBAN</h3>
+  <div class="hint" style="margin-bottom:14px">ألصق رقم BBAN كامل لمعرفة البنك التابع له واستخراج رقم الحساب الأساسي بدقة</div>
+  <div class="field">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+      <label style="margin:0">رقم BBAN الكامل</label>
+      <span id="decodeCounter" class="counter-badge">0 رقم</span>
+    </div>
+    <input id="decodeInput" inputmode="numeric" autocomplete="off" placeholder="مثلاً: 04012345670001">
+  </div>
+  <button class="btn primary" id="decodeBtn">تفكيك وتحليل الرقم</button>
+
+  <div class="result" id="decodeResult" style="text-align:right">
+    <div style="font-size:14px;color:var(--muted);margin-bottom:4px">البنك المطابق:</div>
+    <div style="font-size:20px;font-weight:800;color:var(--p2);margin-bottom:12px" id="decodeBankName">-</div>
+    
+    <div class="decode-meta-grid">
+      <div class="decode-meta-card">
+        <div class="decode-meta-title">السابقة (Prefix)</div>
+        <div class="decode-meta-val" id="decodePrefix">-</div>
+      </div>
+      <div class="decode-meta-card" style="border-color:var(--p)">
+        <div class="decode-meta-title">رقم الحساب المستخرج</div>
+        <div class="decode-meta-val" id="decodeAccount" style="color:var(--p2);font-size:18px">-</div>
+      </div>
+      <div class="decode-meta-card">
+        <div class="decode-meta-title">اللاحقة (Suffix)</div>
+        <div class="decode-meta-val" id="decodeSuffix">-</div>
+      </div>
+    </div>
+
+    <div class="actions" style="margin-top:14px">
+      <button class="btn primary" id="decodeCopyAcc" style="flex:1">📋 نسخ رقم الحساب</button>
+      <button class="btn secondary" id="decodeSaveVault">💾 حفظ في حساباتي</button>
+    </div>
   </div>
 </div>
 </section>
@@ -78,15 +150,18 @@
   <button class="btn secondary hidden" id="cancelEdit" style="margin-top:8px;width:100%">إلغاء التعديل</button>
 </div>
 <div class="card">
-  <h3>البنوك المحفوظة</h3>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h3 style="margin:0">البنوك المحفوظة</h3>
+  </div>
   <div id="bankList" class="list"></div>
+  <button class="btn secondary" id="resetBanks" style="margin-top:16px;width:100%">🔄 استعادة البنوك الافتراضية</button>
 </div>
 </section>
 
 <section id="saved" class="panel hidden">
 <div class="card">
   <h3>حساباتي المحفوظة</h3>
-  <div class="hint" style="margin-bottom:14px">ادخل رقم الحساب الاساسي</div>
+  <div class="hint" style="margin-bottom:14px">احفظ حساباتك للوصول إليها ومشاركتها ونسخ BBAN الخاص بها بضغطة واحدة</div>
 
   <div class="row">
     <div class="field">
@@ -100,7 +175,10 @@
   </div>
 
   <div class="field">
-    <label>رقم الحساب الأساسي</label>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+      <label style="margin:0">رقم الحساب الأساسي</label>
+      <span id="vAccountCounter" class="counter-badge">0 / 0</span>
+    </div>
     <input id="vAccount" inputmode="numeric" placeholder="اكتب رقم الحساب الأساسي">
     <div class="hint" id="vBankHint"></div>
   </div>
@@ -109,6 +187,10 @@
   <button class="btn secondary hidden" id="cancelVaultEdit" style="margin-top:8px;width:100%">إلغاء التعديل</button>
 
   <hr style="border:0;border-top:1px solid var(--border);margin:20px 0">
+
+  <div class="field" style="margin-bottom:14px">
+    <input id="searchVault" placeholder="🔍 ابحث بالاسم أو رقم الحساب أو البنك..." autocomplete="off">
+  </div>
   <div id="vaultList" class="list"></div>
 </div>
 
@@ -129,6 +211,7 @@
 </footer>
 </div>
 
+<script src="qr.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

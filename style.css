@@ -108,3 +108,132 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:25px}
 .modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5}
 .modal-actions{display:flex;gap:10px}
 .modal-actions button{flex:1;padding:11px 14px;font-size:14px;border-radius:11px}
+
+/* Update Banner */
+.update-banner {
+  background: linear-gradient(135deg, rgba(155,110,243,0.18), rgba(176,140,246,0.25));
+  border: 1px solid var(--p);
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.update-banner span {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+.btn-sm {
+  padding: 8px 14px;
+  font-size: 13px;
+  width: auto;
+}
+
+/* Counter Badge */
+.counter-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: monospace;
+  direction: ltr;
+  transition: all 0.2s ease;
+}
+.counter-badge.done {
+  background: rgba(46, 204, 113, 0.15);
+  border-color: #2ecc71;
+  color: #2ecc71;
+}
+.counter-badge.overflow {
+  background: rgba(231, 76, 60, 0.15);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* BBAN Chunks Formatting */
+.bban-chunks {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0 16px;
+  direction: ltr;
+}
+.chunk-part {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 12px;
+  text-align: center;
+  min-width: 60px;
+}
+.chunk-part.acc {
+  border-color: var(--p);
+  background: rgba(155, 110, 243, 0.12);
+}
+.chunk-val {
+  font-family: monospace;
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+.chunk-part.acc .chunk-val {
+  color: var(--p2);
+}
+.chunk-tag {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* QR Box */
+.qr-container {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.qr-wrapper {
+  background: #fff;
+  padding: 10px;
+  border-radius: 14px;
+  display: inline-flex;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+}
+
+/* Decoder Panel */
+.decode-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.decode-meta-card {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  text-align: center;
+}
+.decode-meta-title {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.decode-meta-val {
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
