@@ -74,6 +74,7 @@ function normalizeBanks(){
       else if(b.id !== "default-masrafak"
         && (nm === "بنك المزارع التجاري" || nm.startsWith("بنك المزارع التجاري (الصيغة"))
         && (sameRules(b,"222","",11) || sameRules(b,"220","01000",6))) target = "default-masrafak";
+      else if(b.id !== "default-makashi" && (nm === "محفظة ماي كاشي" || nm === "خدمة ماي كاشي") && sameRules(b,"070","89",9)) target = "default-makashi";
     }
     if(target){ idMap[b.id] = target; return; }
     if(seen.has(b.id)) return;
