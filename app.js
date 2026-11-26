@@ -52,7 +52,7 @@ const LEGACY_BANK_MIGRATIONS = {
   "default-islamic-sudanese": {name:"البنك الإسلامي السوداني",appName:"أمين بلس",code:"14"},
   "default-masrafak": {name:"بنك المزارع التجاري",appName:"مصرفك",code:"22"},
   "default-sah": {name:"بنك النيل",appName:"ساهل",code:"",prefix:"",suffix:"",len:14,manualOnly:true},
-  "default-makashi": {name:"خدمة ماي كاشي",appName:"MyCashi",code:"30",prefix:"070",suffix:"89",len:9}
+  "default-makashi": {name:"محفظة ماي كاشي",appName:"MyCashi",code:"30",prefix:"070",suffix:"89",len:9}
 };
 
 function sameRules(b, prefix, suffix, len){
