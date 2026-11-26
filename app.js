@@ -10,7 +10,7 @@ const DEFAULT_BANKS = [
   {id:"default-masrafak",name:"بنك المزارع التجاري",appName:"مصرفك",code:"22",prefix:"220",accPrefix:"01000",suffix:"",len:6},
   {id:"default-fawry",name:"بنك فيصل الإسلامي",appName:"فوري",code:"02",prefix:"02",suffix:"0001",len:8},
   {id:"default-O-cash",name:"بنك أم درمان الوطني",appName:"أوكاش",code:"24",prefix:"24",suffix:"00001",len:7},
-  {id:"default-makashi",name:"خدمة ماي كاشي",appName:"MyCashi",code:"30",prefix:"070",suffix:"89",len:9},
+  {id:"default-makashi",name:"محفظة ماي كاشي",appName:"MyCashi",code:"30",prefix:"070",suffix:"89",len:9},
   {id:"default-blue-nile",name:"بنك النيل الأزرق",appName:"مشرق",code:"15",prefix:"150000",suffix:"",len:8},
   {id:"default-islamic-sudanese",name:"البنك الإسلامي السوداني",appName:"أمين بلس",code:"14",prefix:"140",suffix:"00001",len:6},
   {id:"default-agricultural",name:"البنك الزراعي السوداني",appName:"الزراعي موبايل",code:"03",prefix:"03",suffix:"01001",len:7},
