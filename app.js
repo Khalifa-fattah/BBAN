@@ -10,9 +10,9 @@ const DEFAULT_BANKS = [
   {id:"default-masrafak",name:"بنك المزارع التجاري",appName:"مصرفك",code:"22",prefix:"220",accPrefix:"01000",suffix:"",len:6},
   {id:"default-fawry",name:"بنك فيصل الإسلامي",appName:"فوري",code:"02",prefix:"02",suffix:"0001",len:8},
   {id:"default-O-cash",name:"بنك أم درمان الوطني",appName:"أوكاش",code:"24",prefix:"24",suffix:"00001",len:7},
-  {id:"default-makashi",name:"خدمة ماي كاشي",appName:"MyCashi",code:"",prefix:"",suffix:"",len:14,manualOnly:true},
+  {id:"default-makashi",name:"خدمة ماي كاشي",appName:"MyCashi",code:"30",prefix:"070",suffix:"89",len:9,manualOnly:true},
   {id:"default-blue-nile",name:"بنك النيل الأزرق",appName:"مشرق",code:"15",prefix:"150000",suffix:"",len:8},
-  {id:"default-islamic-sudanese",name:"البنك الإسلامي السوداني",appName:"أمين بلس",code:"14",prefix:"14000",suffix:"00001",len:4},
+  {id:"default-islamic-sudanese",name:"البنك الإسلامي السوداني",appName:"أمين بلس",code:"14",prefix:"140",suffix:"00001",len:6},
   {id:"default-agricultural",name:"البنك الزراعي السوداني",appName:"الزراعي موبايل",code:"03",prefix:"03",suffix:"01001",len:7},
   {id:"default-french",name:"البنك الفرنسي السوداني",appName:"",code:"11",prefix:"110",suffix:"00001",len:6},
   {id:"default-salam",name:"بنك السلام السوداني",appName:"",code:"18",prefix:"180",suffix:"00001",len:6},
@@ -22,6 +22,7 @@ const DEFAULT_BANKS = [
   {id:"default-united-capital",name:"بنك المال المتحد",appName:"",code:"17",prefix:"170",suffix:"00001",len:6},
   {id:"default-workers",name:"بنك العمال الوطني",appName:"وطني",code:"",prefix:"",suffix:"",len:14,manualOnly:true},
   {id:"default-sah",name:"بنك النيل",appName:"ساهل",code:"",prefix:"",suffix:"",len:14,manualOnly:true},
+    {id:"sah",name:"sah-صح",appName:"sah",code:"31",prefix:"",suffix:"",len:14},
   {id:"default-real-estate",name:"البنك العقاري التجاري",appName:"تطبيق البنك",code:"",prefix:"",suffix:"",len:14,manualOnly:true}
 ];
 
