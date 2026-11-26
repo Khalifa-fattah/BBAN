@@ -1,4 +1,5 @@
 :root{
+  color-scheme:dark;
   --p:#9b6ef3;
   --p2:#b08cf6;
   --bg:#110e1b;
@@ -62,7 +63,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:25px}
 
 /* Modern BBAN toast */
 #appToast{
- position:fixed;left:50%;bottom:24px;z-index:99999;
+ position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));z-index:99999;
  width:min(92%,430px);padding:13px 15px;
  display:flex;align-items:center;gap:12px;direction:rtl;
  background:rgba(23,19,36,.98);color:#f4f1fa;
@@ -237,3 +238,115 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:25px}
   font-weight: 700;
   color: var(--text);
 }
+
+
+/* Official bank names and contrasting mobile-app labels */
+.bank-select-heading{
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px
+}
+.bank-select-heading label{margin:0}
+.bank-app-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:3px 9px;border-radius:999px;
+  color:#d9c6ff;background:rgba(155,110,243,.16);
+  border:1px solid rgba(155,110,243,.38);
+  font-size:11px;font-weight:800;white-space:nowrap
+}
+.bank-item-title{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap
+}
+.bank-item-title .mono{display:block;flex-basis:100%;margin-top:5px}
+
+
+/* Custom bank dropdown */
+.cs-native{display:none!important}
+.cs{position:relative}
+.cs-trigger{
+  width:100%;display:flex;align-items:center;gap:10px;text-align:right;
+  padding:13px 14px;min-height:52px;font:inherit;font-size:16px;cursor:pointer;
+  background:var(--input-bg);color:var(--text);
+  border:1px solid var(--input-border);border-radius:11px;outline:none;
+  transition:border-color .2s ease,box-shadow .2s ease,background .2s ease;
+  -webkit-tap-highlight-color:transparent
+}
+.cs-trigger:hover{border-color:rgba(155,110,243,.55)}
+.cs-trigger:focus-visible,.cs.open .cs-trigger{border-color:var(--p);box-shadow:0 0 0 3px rgba(155,110,243,.2)}
+.cs-label{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cs-name{font-weight:800;color:var(--text);line-height:1.4}
+.cs-placeholder{color:var(--muted)}
+.cs-chev{flex:none;color:var(--p2);transition:transform .2s ease}
+.cs.open .cs-chev{transform:rotate(180deg)}
+.cs-badge{font-size:12px;padding:3px 10px}
+.cs-panel{
+  position:absolute;z-index:60;inset-inline:0;top:calc(100% + 6px);
+  max-height:min(320px,55vh);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:6px;background:var(--card);border:1px solid rgba(155,110,243,.4);border-radius:14px;
+  box-shadow:0 14px 36px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04);
+  scrollbar-width:thin;scrollbar-color:var(--p) transparent;
+  opacity:0;visibility:hidden;transform:translateY(-6px) scale(.98);transform-origin:top center;
+  transition:opacity .16s ease,transform .16s ease,visibility .16s
+}
+.cs.up .cs-panel{top:auto;bottom:calc(100% + 6px);transform-origin:bottom center;transform:translateY(6px) scale(.98)}
+.cs.open .cs-panel{opacity:1;visibility:visible;transform:none}
+.cs-item{
+  display:flex;align-items:center;gap:8px;padding:12px;border-radius:10px;cursor:pointer;
+  border:1px solid transparent;color:var(--text);
+  transition:background .15s ease,border-color .15s ease,transform .1s ease;
+  -webkit-tap-highlight-color:transparent
+}
+.cs-item+.cs-item{margin-top:3px}
+.cs-item>.cs-name{margin-inline-end:2px}
+.cs-item:hover,.cs-item.active{background:rgba(155,110,243,.12)}
+.cs-item:active{transform:scale(.985);background:rgba(155,110,243,.22)}
+.cs-item.selected{background:rgba(155,110,243,.18);border-color:rgba(155,110,243,.5)}
+.cs-item .cs-badge{flex:none}
+.cs-check{margin-inline-start:auto;flex:none;color:var(--p2);opacity:0;transform:scale(.6);transition:all .15s ease}
+.cs-item.selected .cs-check{opacity:1;transform:none}
+.cs-item{flex-wrap:wrap}
+.cs-item .cs-check{order:3}
+.cs-empty{padding:14px;text-align:center;color:var(--muted);font-size:14px}
+
+/* Bank ordering buttons */
+.order-btns{display:inline-flex;gap:6px}
+.btn-icon{width:38px;height:34px;padding:0!important;display:inline-grid;place-items:center;flex:none}
+.btn-icon:disabled{opacity:.32;cursor:not-allowed}
+.btn-icon:disabled:hover{background:#261f38}
+.item.moved{animation:bankMoved .7s ease}
+@keyframes bankMoved{0%{background:rgba(155,110,243,.35)}100%{background:var(--input-bg)}}
+@media(max-width:520px){
+  .actions .order-btns{flex:0 0 auto}
+  .actions .btn-icon{flex:0 0 42px}
+}
+
+/* Unified modal / toast variants */
+.modal-icon.info{background:rgba(155,110,243,.18);color:var(--p2);border:1px solid rgba(155,110,243,.35)}
+.modal-actions .primary{width:auto}
+#appToast.warn{border-color:rgba(245,176,76,.55)}
+#appToast.warn .toastIcon{background:linear-gradient(135deg,#f5b04c,#f7c874);box-shadow:0 6px 18px rgba(245,176,76,.3)}
+#appToast .toastSub{font-size:12px}
+
+
+/* Generated BBAN (single connected number) */
+.result-label{font-size:13px;color:var(--muted);margin-bottom:6px}
+.result .num{display:block;font-family:monospace;font-size:26px;user-select:all;-webkit-user-select:all;padding:6px 0 2px}
+
+/* Input + scan button */
+.input-with-btn{display:flex;gap:8px;align-items:stretch}
+.input-with-btn input{flex:1;min-width:0}
+.scan-btn{flex:none;width:auto;padding:0 14px;font-size:14px;white-space:nowrap;border-radius:11px}
+.decode-note{font-size:12px;color:var(--p2);background:rgba(155,110,243,.12);border:1px solid rgba(155,110,243,.3);border-radius:10px;padding:8px 10px;margin-bottom:12px;direction:ltr;text-align:right;word-break:break-all}
+
+/* Scanner modal */
+.scan-card{max-width:420px}
+.scan-frame{position:relative;width:100%;aspect-ratio:1/1;border-radius:16px;overflow:hidden;background:#0a0810;border:1px solid var(--border);margin-bottom:16px}
+.scan-frame video{width:100%;height:100%;object-fit:cover;display:block}
+.scan-corners{position:absolute;inset:18%;pointer-events:none;border-radius:14px;
+  background:
+   linear-gradient(var(--p2),var(--p2)) top right/26px 3px no-repeat,linear-gradient(var(--p2),var(--p2)) top right/3px 26px no-repeat,
+   linear-gradient(var(--p2),var(--p2)) top left/26px 3px no-repeat,linear-gradient(var(--p2),var(--p2)) top left/3px 26px no-repeat,
+   linear-gradient(var(--p2),var(--p2)) bottom right/26px 3px no-repeat,linear-gradient(var(--p2),var(--p2)) bottom right/3px 26px no-repeat,
+   linear-gradient(var(--p2),var(--p2)) bottom left/26px 3px no-repeat,linear-gradient(var(--p2),var(--p2)) bottom left/3px 26px no-repeat}
+.scan-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;font-size:14px;line-height:1.7;color:var(--text);background:rgba(17,14,27,.92)}
+.scan-file-btn{flex:1;display:flex;align-items:center;justify-content:center;padding:11px 14px;font-size:14px;border-radius:11px;cursor:pointer}
+.scan-card .modal-actions .btn{min-height:46px}
+.scan-btn{width:52px;padding:0!important;display:grid;place-items:center;color:var(--p)}

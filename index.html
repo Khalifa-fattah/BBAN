@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#110e1b">
 <link rel="icon" href="icon.png">
-<link rel="apple-touch-icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon-512.png">
 </head>
 <body>
 
@@ -33,6 +33,22 @@
     <div class="modal-actions">
       <button class="btn primary" id="qrModalCopy">📋 نسخ الرقم</button>
       <button class="btn secondary" id="qrModalClose">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<div id="scanModal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-card scan-card">
+    <div class="modal-title">مسح رمز QR</div>
+    <div class="modal-sub">وجّه الكاميرا نحو الرمز ليُقرأ تلقائياً (رقم حساب أو BBAN أو IBAN)</div>
+    <div class="scan-frame">
+      <video id="scanVideo" playsinline muted></video>
+      <div class="scan-corners"></div>
+      <div class="scan-msg hidden" id="scanMsg"></div>
+    </div>
+    <div class="modal-actions">
+      <label class="btn secondary scan-file-btn">🖼 من صورة<input id="scanFile" type="file" accept="image/*" hidden></label>
+      <button class="btn secondary" id="scanClose">إغلاق</button>
     </div>
   </div>
 </div>
@@ -65,24 +81,26 @@
 <section id="generator" class="panel">
 <div class="card">
   <div class="field">
-    <label>البنك</label>
+    <div class="bank-select-heading"><label>البنك</label></div>
     <select id="bankSelect"></select>
   </div>
   <div class="field">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
-      <label style="margin:0">رقم الحساب</label>
+      <label id="accountLabel" style="margin:0">رقم الحساب</label>
       <span id="accountCounter" class="counter-badge">0 / 0</span>
     </div>
-    <input id="account" inputmode="numeric" autocomplete="off" placeholder="اكتب رقم الحساب">
+    <div class="input-with-btn">
+      <input id="account" inputmode="numeric" autocomplete="off" placeholder="اكتب رقم الحساب">
+      <button type="button" class="btn secondary scan-btn" id="scanGenBtn" aria-label="مسح رمز QR" title="مسح رمز QR"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1"/></svg></button>
+    </div>
     <div class="hint" id="bankHint"></div>
   </div>
   <button class="btn primary" id="generate">احسب رقم BBAN</button>
   <div class="result" id="result">
-    <span class="num hidden" id="resultNum"></span>
-    <div class="bban-chunks" id="resultChunks"></div>
+    <div class="result-label">رقم BBAN</div>
+    <span class="num" id="resultNum"></span>
     <div class="actions" style="margin-top:14px;justify-content:center">
       <button class="btn primary" id="copyBtn" style="flex:1">📋 نسخ BBAN</button>
-      <button class="btn secondary" id="copySpacesBtn">نسخ مع فواصل</button>
       <button class="btn secondary" id="shareBtn">📤 مشاركة</button>
       <button class="btn secondary" id="toggleQrBtn">📱 رمز QR</button>
     </div>
@@ -97,19 +115,23 @@
 <section id="decoder" class="panel hidden">
 <div class="card">
   <h3>تفكيك والتحقق من رقم BBAN</h3>
-  <div class="hint" style="margin-bottom:14px">ألصق رقم BBAN كامل لمعرفة البنك التابع له واستخراج رقم الحساب الأساسي بدقة</div>
+  <div class="hint" style="margin-bottom:14px">ألصق رقم BBAN أو IBAN لمعرفة البنك التابع له واستخراج رقم الحساب</div>
   <div class="field">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
-      <label style="margin:0">رقم BBAN الكامل</label>
+      <label style="margin:0">رقم BBAN أو IBAN</label>
       <span id="decodeCounter" class="counter-badge">0 رقم</span>
     </div>
-    <input id="decodeInput" inputmode="numeric" autocomplete="off" placeholder="مثلاً: 04012345670001">
+    <div class="input-with-btn">
+      <input id="decodeInput" inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false" >
+      <button type="button" class="btn secondary scan-btn" id="scanDecBtn" aria-label="مسح رمز QR" title="مسح رمز QR"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.2"/><rect x="14" y="3" width="7" height="7" rx="1.2"/><rect x="3" y="14" width="7" height="7" rx="1.2"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h1"/></svg></button>
+    </div>
   </div>
   <button class="btn primary" id="decodeBtn">تفكيك وتحليل الرقم</button>
 
   <div class="result" id="decodeResult" style="text-align:right">
     <div style="font-size:14px;color:var(--muted);margin-bottom:4px">البنك المطابق:</div>
     <div style="font-size:20px;font-weight:800;color:var(--p2);margin-bottom:12px" id="decodeBankName">-</div>
+    <div class="decode-note hidden" id="decodeNote"></div>
     
     <div class="decode-meta-grid">
       <div class="decode-meta-card">
@@ -138,9 +160,10 @@
 <div class="card">
   <h3>إضافة / تعديل بنك</h3>
   <div class="row">
-    <div class="field"><label>اسم البنك</label><input id="bName" placeholder="مثلاً: بنك ABC"></div>
-    <div class="field"><label>رقم البنك / كود اختياري</label><input id="bCode" placeholder="مثلاً: 04"></div>
+    <div class="field"><label>اسم البنك الرسمي</label><input id="bName" placeholder="مثلاً: بنك ABC"></div>
+    <div class="field"><label>اسم التطبيق (اختياري)</label><input id="bAppName" placeholder="مثلاً: بنكك"></div>
   </div>
+  <div class="field"><label>رقم البنك / كود اختياري</label><input id="bCode" placeholder="مثلاً: 04"></div>
   <div class="row">
     <div class="field"><label>الأرقام السابقة Prefix</label><input id="bPrefix" inputmode="numeric" placeholder="مثلاً: 040"></div>
     <div class="field"><label>الأرقام اللاحقة Suffix</label><input id="bSuffix" inputmode="numeric" placeholder="مثلاً: 001"></div>
@@ -212,6 +235,7 @@
 </div>
 
 <script src="qr.js"></script>
+<script src="jsQR.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

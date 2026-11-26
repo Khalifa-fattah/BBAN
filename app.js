@@ -3,28 +3,154 @@ function makeId(){
   return "id-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10);
 }
 
+// Default banks, in the required default display order.
 const DEFAULT_BANKS = [
-  {id:"default-bankak",name:"بنكك",code:"1",prefix:"040",suffix:"0001",len:7},
-  {id:"default-masrafak",name:"مصرفك",code:"2",prefix:"220",suffix:"",len:11},
-  {id:"default-fawry",name:"فوري",code:"3",prefix:"02",suffix:"0001",len:8},
-  {id:"default-makashi",name:"ماي كاشي",code:"4",prefix:"070",suffix:"98",len:9},
-  {id:"default-O-cash",name:"أوكاش",code:"5",prefix:"24",suffix:"00001",len:7},
-  {id:"default-sah",name:"صح - sah",code:"6",prefix:"",suffix:"",len:14},
-  {id:"default-islamic-sudanese",name:"البنك الإسلامي",code:"7",prefix:"140",suffix:"00001",len:6}
+  {id:"default-bankak",name:"بنك الخرطوم",appName:"بنكك",code:"04",prefix:"040",suffix:"0001",len:7},
+  // Account numbers are 11 digits (01000 + 6 digits). "01000" is constant, so users may enter only the last 6 digits.
+  {id:"default-masrafak",name:"بنك المزارع التجاري",appName:"مصرفك",code:"22",prefix:"220",accPrefix:"01000",suffix:"",len:6},
+  {id:"default-fawry",name:"بنك فيصل الإسلامي",appName:"فوري",code:"02",prefix:"02",suffix:"0001",len:8},
+  {id:"default-O-cash",name:"بنك أم درمان الوطني",appName:"أوكاش",code:"24",prefix:"24",suffix:"00001",len:7},
+  {id:"default-makashi",name:"خدمة ماي كاشي",appName:"MyCashi",code:"",prefix:"",suffix:"",len:14,manualOnly:true},
+  {id:"default-blue-nile",name:"بنك النيل الأزرق",appName:"مشرق",code:"15",prefix:"150000",suffix:"",len:8},
+  {id:"default-islamic-sudanese",name:"البنك الإسلامي السوداني",appName:"أمين بلس",code:"14",prefix:"14000",suffix:"00001",len:4},
+  {id:"default-agricultural",name:"البنك الزراعي السوداني",appName:"الزراعي موبايل",code:"03",prefix:"03",suffix:"01001",len:7},
+  {id:"default-french",name:"البنك الفرنسي السوداني",appName:"",code:"11",prefix:"110",suffix:"00001",len:6},
+  {id:"default-salam",name:"بنك السلام السوداني",appName:"",code:"18",prefix:"180",suffix:"00001",len:6},
+  {id:"default-baraka",name:"بنك البركة السوداني",appName:"",code:"07",prefix:"070",suffix:"00001",len:6},
+  {id:"default-animal",name:"بنك الثروة الحيوانية",appName:"",code:"09",prefix:"090",suffix:"00001",len:6},
+  {id:"default-industrial",name:"بنك التنمية الصناعية",appName:"",code:"13",prefix:"130",suffix:"00001",len:6},
+  {id:"default-united-capital",name:"بنك المال المتحد",appName:"",code:"17",prefix:"170",suffix:"00001",len:6},
+  {id:"default-workers",name:"بنك العمال الوطني",appName:"وطني",code:"",prefix:"",suffix:"",len:14,manualOnly:true},
+  {id:"default-sah",name:"بنك النيل",appName:"ساهل",code:"",prefix:"",suffix:"",len:14,manualOnly:true},
+  {id:"default-real-estate",name:"البنك العقاري التجاري",appName:"تطبيق البنك",code:"",prefix:"",suffix:"",len:14,manualOnly:true}
 ];
 
-let storedBanks = JSON.parse(localStorage.getItem("bban_banks") || "null");
-let banks = Array.isArray(storedBanks) ? storedBanks : DEFAULT_BANKS.map(b=>({...b}));
+// "default-order" = order was not changed manually; "custom" = user ordered banks by hand.
+const ORDER_KEY = "bban_banks_order";
+// Old bank ids that are now merged into a single bank.
+const BANK_ID_ALIASES = {"default-masrafak-220":"default-masrafak"};
 
-DEFAULT_BANKS.forEach(def=>{
-  const exists = banks.some(b => b.id === def.id || (b.name || "").trim() === def.name);
-  if(!exists) banks.push({...def});
-});
+function readJSON(key, fallback){
+  try{
+    const v = JSON.parse(localStorage.getItem(key) || "null");
+    return v === null ? fallback : v;
+  }catch(e){ return fallback; }
+}
 
-localStorage.setItem("bban_banks", JSON.stringify(banks));
+const storedBanks = readJSON("bban_banks", null);
+const isFirstInstall = !Array.isArray(storedBanks);
+let banks = isFirstInstall ? DEFAULT_BANKS.map(b=>({...b})) : storedBanks.filter(b=>b && b.id);
+let savedAccounts = readJSON("bban_saved_accounts", []);
+if(!Array.isArray(savedAccounts)) savedAccounts = [];
+
+// Migrate legacy app-only labels to official bank names, preserving user data where possible.
+const LEGACY_BANK_MIGRATIONS = {
+  "default-bankak": {name:"بنك الخرطوم",appName:"بنكك",code:"04"},
+  "default-fawry": {name:"بنك فيصل الإسلامي",appName:"فوري",code:"02"},
+  "default-O-cash": {name:"بنك أم درمان الوطني",appName:"أوكاش",code:"24"},
+  "default-islamic-sudanese": {name:"البنك الإسلامي السوداني",appName:"أمين بلس",code:"14"},
+  "default-masrafak": {name:"بنك المزارع التجاري",appName:"مصرفك",code:"22"},
+  "default-sah": {name:"بنك النيل",appName:"ساهل",code:"",prefix:"",suffix:"",len:14,manualOnly:true},
+  "default-makashi": {name:"خدمة ماي كاشي",appName:"MyCashi",code:"",prefix:"",suffix:"",len:14,manualOnly:true}
+};
+
+function sameRules(b, prefix, suffix, len){
+  return (b.prefix||"") === prefix && (b.suffix||"") === suffix && Number(b.len) === len;
+}
+
+// Removes duplicate/legacy bank entries (standalone "بنكك", old Mazaree' formats).
+// Never removes custom banks. Returns a map {oldBankId: newBankId} for remapping saved accounts.
+function normalizeBanks(){
+  const idMap = {...BANK_ID_ALIASES};
+  const out = [];
+  const seen = new Set();
+  banks.forEach(b=>{
+    if(!b || !b.id) return;
+    const nm = (b.name || "").trim();
+    let target = BANK_ID_ALIASES[b.id] || null;
+    if(!target){
+      if(b.id !== "default-bankak" && nm === "بنكك" && sameRules(b,"040","0001",7)) target = "default-bankak";
+      else if(b.id !== "default-masrafak"
+        && (nm === "بنك المزارع التجاري" || nm.startsWith("بنك المزارع التجاري (الصيغة"))
+        && (sameRules(b,"222","",11) || sameRules(b,"220","01000",6))) target = "default-masrafak";
+    }
+    if(target){ idMap[b.id] = target; return; }
+    if(seen.has(b.id)) return;
+    seen.add(b.id);
+    out.push(b);
+  });
+  banks = out;
+  return idMap;
+}
+
+// Banks with a constant account prefix (accPrefix) accept the short account (len digits)
+// or the full account (accPrefix + len digits). The short form is what we store.
+function normalizeAccount(bank, account){
+  const acc = String(account || "");
+  const ap = bank && bank.accPrefix;
+  if(ap && acc.length === Number(bank.len) + ap.length && acc.startsWith(ap)) return acc.slice(ap.length);
+  return acc;
+}
+
+function isValidAccountLen(bank, account){
+  if(!bank) return false;
+  const n = String(account || "").length;
+  if(n === Number(bank.len)) return true;
+  const ap = bank.accPrefix;
+  return !!ap && n === Number(bank.len) + ap.length && String(account).startsWith(ap);
+}
+
+function normalizeSavedAccounts(){
+  let changed = false;
+  savedAccounts.forEach(a=>{
+    if(!a) return;
+    const b = banks.find(x=>x.id === a.bankId);
+    const n = normalizeAccount(b, a.account);
+    if(n !== a.account){ a.account = n; changed = true; }
+  });
+  return changed;
+}
+
+function remapAccountBankIds(idMap){
+  let changed = false;
+  savedAccounts.forEach(a=>{
+    if(a && idMap[a.bankId] && idMap[a.bankId] !== a.bankId){ a.bankId = idMap[a.bankId]; changed = true; }
+  });
+  return changed;
+}
+
+// Default banks first (in DEFAULT_BANKS order), then every other (custom) bank in its current order.
+function applyDefaultOrder(){
+  const defIds = new Set(DEFAULT_BANKS.map(d=>d.id));
+  const defaults = DEFAULT_BANKS.map(d=>banks.find(b=>b.id===d.id)).filter(Boolean);
+  banks = [...defaults, ...banks.filter(b=>!defIds.has(b.id))];
+}
+
+(function initBanks(){
+  Object.entries(LEGACY_BANK_MIGRATIONS).forEach(([id, patch])=>{
+    const existing = banks.find(b=>b.id===id);
+    if(existing) Object.assign(existing, patch);
+  });
+  const idMap = normalizeBanks();
+  DEFAULT_BANKS.forEach(def=>{
+    const existing = banks.find(b=>b.id===def.id);
+    if(!existing) banks.push({...def});
+    // Refresh built-in bank rules while retaining the user's bank record identity.
+    else Object.assign(existing, def);
+  });
+  // Apply the default order once (first install / first run of this version).
+  // After the user orders banks manually ("custom") it is never reordered again.
+  if(!localStorage.getItem(ORDER_KEY)){
+    applyDefaultOrder();
+    localStorage.setItem(ORDER_KEY, "default");
+  }
+  localStorage.setItem("bban_banks", JSON.stringify(banks));
+  const remapped = remapAccountBankIds(idMap);
+  const normalized = normalizeSavedAccounts();
+  if(remapped || normalized) localStorage.setItem("bban_saved_accounts", JSON.stringify(savedAccounts));
+})();
 
 let editId = null;
-let savedAccounts = JSON.parse(localStorage.getItem("bban_saved_accounts") || "[]");
 let vaultEditId = null;
 let currentSearchQuery = "";
 
@@ -39,18 +165,37 @@ function sanitizeDigits(val){
 
 // Modal Handler
 let onModalConfirmCallback = null;
-function showConfirmModal(title, sub, confirmText = "حذف", onConfirm = null){
+function showConfirmModal(title, sub, confirmText = "حذف", onConfirm = null, variant = "danger"){
   $("modalTitle").textContent = title;
   $("modalSub").textContent = sub;
   $("modalConfirm").textContent = confirmText;
+  const isDanger = variant === "danger";
+  $("modalIcon").textContent = isDanger ? "🗑" : "🔄";
+  $("modalIcon").classList.toggle("info", !isDanger);
+  $("modalConfirm").className = isDanger ? "btn danger" : "btn primary";
   onModalConfirmCallback = onConfirm;
   $("appModal").classList.add("show");
+  $("appModal").setAttribute("aria-hidden", "false");
 }
 
 function hideConfirmModal(){
   $("appModal").classList.remove("show");
+  $("appModal").setAttribute("aria-hidden", "true");
   onModalConfirmCallback = null;
 }
+
+// Close modals by tapping the dimmed backdrop or pressing Escape
+["appModal","qrModal"].forEach(id=>{
+  $(id).addEventListener("click", e=>{
+    if(e.target !== $(id)) return;
+    if(id === "appModal") hideConfirmModal(); else hideQrModal();
+  });
+});
+document.addEventListener("keydown", e=>{
+  if(e.key !== "Escape") return;
+  if($("appModal").classList.contains("show")) hideConfirmModal();
+  if($("qrModal").classList.contains("show")) hideQrModal();
+});
 
 $("modalCancel").onclick = hideConfirmModal;
 $("modalConfirm").onclick = ()=>{
@@ -69,10 +214,12 @@ function showQrModal(title, sub, textToEncode, displayText){
     $("qrModalGraphic").innerHTML = window.QRGenerator.generateSVG(textToEncode, 200);
   }
   $("qrModal").classList.add("show");
+  $("qrModal").setAttribute("aria-hidden", "false");
 }
 
 function hideQrModal(){
   $("qrModal").classList.remove("show");
+  $("qrModal").setAttribute("aria-hidden", "true");
   qrModalCurrentText = "";
 }
 
@@ -82,16 +229,132 @@ $("qrModalCopy").onclick = async ()=>{
   await copyTextToClipboard(qrModalCurrentText, "تم نسخ الرقم بنجاح");
 };
 
+// ---- Custom bank dropdown (replaces the native <select>; the select stays hidden as the value holder)
+const selectValueDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+const CHECK_SVG = '<svg class="cs-check" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CHEV_SVG = '<svg class="cs-chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const openDropdowns = new Set();
+
+function bankLabelHTML(b){
+  return `<span class="cs-name">${esc(b.name)}</span>${b.appName ? `<span class="bank-app-badge cs-badge">${esc(b.appName)}</span>` : ""}`;
+}
+
+function createBankDropdown(sel){
+  const wrap = document.createElement("div");
+  wrap.className = "cs";
+  wrap.innerHTML = `<button type="button" class="cs-trigger" aria-haspopup="listbox" aria-expanded="false"><span class="cs-label"></span>${CHEV_SVG}</button><div class="cs-panel" role="listbox" tabindex="-1"></div>`;
+  sel.parentNode.insertBefore(wrap, sel);
+  sel.classList.add("cs-native");
+  sel.tabIndex = -1;
+  sel.setAttribute("aria-hidden", "true");
+
+  const trigger = wrap.querySelector(".cs-trigger");
+  const label = wrap.querySelector(".cs-label");
+  const panel = wrap.querySelector(".cs-panel");
+  let active = -1;
+
+  function sync(){
+    const b = banks.find(x=>x.id === selectValueDesc.get.call(sel));
+    label.innerHTML = b ? bankLabelHTML(b) : `<span class="cs-placeholder">اختر بنكاً</span>`;
+    panel.querySelectorAll(".cs-item").forEach(el=>{
+      const on = el.dataset.id === selectValueDesc.get.call(sel);
+      el.classList.toggle("selected", on);
+      el.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+  function render(){
+    panel.innerHTML = banks.length ? banks.map(b=>`<div class="cs-item" role="option" data-id="${esc(b.id)}">${bankLabelHTML(b)}${CHECK_SVG}</div>`).join("") : `<div class="cs-empty">لا توجد بنوك</div>`;
+    sync();
+  }
+  function items(){ return Array.from(panel.querySelectorAll(".cs-item")); }
+  function setActive(i){
+    const list = items();
+    if(!list.length) return;
+    active = Math.max(0, Math.min(list.length - 1, i));
+    list.forEach((el, k)=>el.classList.toggle("active", k === active));
+    list[active].scrollIntoView({block:"nearest"});
+  }
+  function open(){
+    if(wrap.classList.contains("open") || !banks.length) return;
+    openDropdowns.forEach(d=>d.close());
+    wrap.classList.add("open");
+    trigger.setAttribute("aria-expanded", "true");
+    const r = trigger.getBoundingClientRect();
+    const below = window.innerHeight - r.bottom, above = r.top;
+    wrap.classList.toggle("up", below < 260 && above > below);
+    const list = items();
+    setActive(Math.max(0, list.findIndex(el=>el.classList.contains("selected"))));
+    openDropdowns.add(api);
+  }
+  function close(){
+    wrap.classList.remove("open", "up");
+    trigger.setAttribute("aria-expanded", "false");
+    items().forEach(el=>el.classList.remove("active"));
+    openDropdowns.delete(api);
+  }
+  function choose(id){
+    const changed = selectValueDesc.get.call(sel) !== id;
+    selectValueDesc.set.call(sel, id);
+    sync();
+    close();
+    if(changed) sel.dispatchEvent(new Event("change", {bubbles:true}));
+  }
+
+  trigger.addEventListener("click", ()=>wrap.classList.contains("open") ? close() : open());
+  panel.addEventListener("click", e=>{
+    const el = e.target.closest(".cs-item");
+    if(el) choose(el.dataset.id);
+  });
+  trigger.addEventListener("keydown", e=>{
+    const isOpen = wrap.classList.contains("open");
+    if(e.key === "ArrowDown" || e.key === "ArrowUp"){
+      e.preventDefault();
+      if(!isOpen) open(); else setActive(active + (e.key === "ArrowDown" ? 1 : -1));
+    } else if(e.key === "Enter" || e.key === " "){
+      e.preventDefault();
+      if(!isOpen) open();
+      else { const el = items()[active]; if(el) choose(el.dataset.id); else close(); }
+    } else if(e.key === "Escape" || e.key === "Tab"){
+      if(isOpen){ if(e.key === "Escape") e.preventDefault(); close(); }
+    }
+  });
+  // Keep the dropdown label in sync when code assigns select.value programmatically
+  Object.defineProperty(sel, "value", {
+    configurable:true,
+    get(){ return selectValueDesc.get.call(this); },
+    set(v){ selectValueDesc.set.call(this, v); sync(); }
+  });
+
+  const api = {render, sync, close, wrap};
+  return api;
+}
+
+document.addEventListener("pointerdown", e=>{
+  openDropdowns.forEach(d=>{ if(!d.wrap.contains(e.target)) d.close(); });
+});
+
+const bankDD = createBankDropdown($("bankSelect"));
+const vaultDD = createBankDropdown($("vBank"));
+
+function bankOptionsHTML(){
+  return banks.map(b=>`<option value="${esc(b.id)}">${esc(b.name)}${b.appName ? " — " + esc(b.appName) : ""}</option>`).join("");
+}
+
 function renderBanks(){
   const sel = $("bankSelect");
   const currVal = sel.value;
-  sel.innerHTML = banks.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join("");
+  sel.innerHTML = bankOptionsHTML();
   if(banks.some(b=>b.id===currVal)) sel.value = currVal;
+  bankDD.render();
 
-  $("bankList").innerHTML = banks.length ? banks.map(b=>`
-    <div class="item">
-      <div><b>${esc(b.name)}</b><span class="mono">${esc(b.prefix)} + الحساب + ${esc(b.suffix)} — الحساب ${b.len} أرقام</span></div>
+  $("bankList").innerHTML = banks.length ? banks.map((b,i)=>`
+    <div class="item" data-id="${esc(b.id)}">
+      <div class="bank-item-title"><b>${esc(b.name)}</b>${b.appName ? `<span class="bank-app-badge">${esc(b.appName)}</span>` : ""}<span class="mono">${b.manualOnly ? "أدخل BBAN المكوّن من 14 رقماً من التطبيق" : `${esc(b.prefix)}${b.accPrefix ? " + " + esc(b.accPrefix) : ""} + الحساب${b.suffix ? " + " + esc(b.suffix) : ""} — الحساب ${b.len} أرقام`}</span></div>
       <div class="actions">
+        <span class="order-btns">
+          <button class="btn secondary btn-icon" onclick="moveBank('${b.id}',-1)" ${i===0?"disabled":""} aria-label="تحريك للأعلى" title="تحريك للأعلى"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button class="btn secondary btn-icon" onclick="moveBank('${b.id}',1)" ${i===banks.length-1?"disabled":""} aria-label="تحريك للأسفل" title="تحريك للأسفل"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </span>
         <button class="btn secondary" onclick="editBank('${b.id}')">تعديل</button>
         <button class="btn danger" onclick="deleteBank('${b.id}')">حذف</button>
       </div>
@@ -100,26 +363,56 @@ function renderBanks(){
   updateAccountCounter();
 }
 
+// Manual ordering: swap with neighbour, persist, and refresh every bank list
+window.moveBank = (id, dir)=>{
+  const i = banks.findIndex(b=>b.id===id);
+  const j = i + dir;
+  if(i < 0 || j < 0 || j >= banks.length) return;
+  [banks[i], banks[j]] = [banks[j], banks[i]];
+  localStorage.setItem(ORDER_KEY, "custom");
+  saveBanks();
+  renderBanks();
+  initSavedPage();
+  const row = Array.from($("bankList").children).find(el=>el.dataset.id===id);
+  if(row){
+    row.classList.add("moved");
+    setTimeout(()=>row.classList.remove("moved"), 700);
+    const btn = row.querySelectorAll(".btn-icon:not(:disabled)");
+    const pick = dir < 0 ? btn[0] : btn[btn.length-1];
+    if(pick) pick.focus({preventScroll:true});
+  }
+};
+
+// Text shown under the account field: the number of digits the user should enter
+function accountHintText(b){
+  if(!b) return "أضف بنكاً من صفحة البنوك.";
+  if(b.manualOnly) return "عدد الأرقام المطلوب: 14 رقماً (رقم BBAN كاملاً كما يظهر في تطبيق البنك).";
+  if(b.accPrefix) return `عدد الأرقام المطلوب: ${b.len} أرقام فقط، أو الرقم كاملاً ${Number(b.len) + b.accPrefix.length} رقماً.`;
+  return `عدد الأرقام المطلوب: ${b.len} أرقام.`;
+}
+
 function updateHint(){
   const b = banks.find(x=>x.id===$("bankSelect").value);
-  $("bankHint").textContent = b ? `يجب أن يكون رقم الحساب ${b.len} أرقام. الناتج = ${b.prefix} + رقم الحساب + ${b.suffix}` : "أضف بنكاً من صفحة البنوك.";
+  $("bankHint").textContent = accountHintText(b);
+  const accountLabel = $("accountLabel");
+  if(accountLabel) accountLabel.textContent = b && b.manualOnly ? "رقم BBAN من التطبيق" : "رقم الحساب";
+}
+
+function updateSelectedBankApp(){}
+
+// Counter text/state shared by generator and saved-accounts forms
+function setCounter(counter, b, acc){
+  const reqLen = b ? Number(b.len) : 0;
+  const full = b && b.accPrefix ? reqLen + b.accPrefix.length : 0;
+  counter.textContent = full ? `${acc.length} / ${reqLen} أو ${full}` : `${acc.length} / ${reqLen}`;
+  counter.classList.remove("done", "overflow");
+  if(!reqLen) return;
+  if(isValidAccountLen(b, acc)) counter.classList.add("done");
+  else if(acc.length > (full || reqLen) || (full && acc.length === full)) counter.classList.add("overflow");
 }
 
 function updateAccountCounter(){
-  const b = banks.find(x=>x.id===$("bankSelect").value);
-  const acc = $("account").value;
-  const counter = $("accountCounter");
-  const reqLen = b ? Number(b.len) : 0;
-  
-  counter.textContent = `${acc.length} / ${reqLen}`;
-  counter.classList.remove("done", "overflow");
-
-  if(!reqLen) return;
-  if(acc.length === reqLen){
-    counter.classList.add("done");
-  } else if(acc.length > reqLen){
-    counter.classList.add("overflow");
-  }
+  setCounter($("accountCounter"), banks.find(x=>x.id===$("bankSelect").value), $("account").value);
 }
 
 // Auto-sanitize and live calculation on account input
@@ -129,8 +422,10 @@ $("account").addEventListener("input", (e)=>{
   updateAccountCounter();
 
   const b = banks.find(x=>x.id===$("bankSelect").value);
-  if(b && clean.length === Number(b.len)){
+  if(b && isValidAccountLen(b, clean)){
     doGenerate(false); // Live auto calculate
+  } else {
+    $("result").style.display = "none"; // incomplete/empty account: hide the result
   }
 });
 
@@ -139,19 +434,18 @@ $("account").addEventListener("keydown", (e)=>{
 });
 
 $("bankSelect").addEventListener("change", ()=>{
+  updateSelectedBankApp();
   updateHint();
   updateAccountCounter();
   const b = banks.find(x=>x.id===$("bankSelect").value);
   const acc = $("account").value.trim();
-  if(b && acc.length === Number(b.len)) doGenerate(false);
+  if(b && isValidAccountLen(b, acc)) doGenerate(false);
+  else $("result").style.display = "none";
 });
 
 function calculateBBAN(bank, account){
-  return bank.prefix + account + bank.suffix;
-}
-
-function formatBBANWithSpaces(bank, account){
-  return [bank.prefix, account, bank.suffix].filter(Boolean).join(" ");
+  if(bank.manualOnly) return account;
+  return bank.prefix + (bank.accPrefix || "") + normalizeAccount(bank, account) + bank.suffix;
 }
 
 function doGenerate(showWarningToasts = true){
@@ -165,19 +459,13 @@ function doGenerate(showWarningToasts = true){
     if(showWarningToasts) showToast("رقم الحساب غير صحيح", "استخدم الأرقام فقط دون مسافات أو رموز.", "!");
     return;
   }
-  if(acc.length !== Number(b.len)){
-    if(showWarningToasts) showToast("طول رقم الحساب غير صحيح", `يجب أن يكون رقم الحساب ${b.len} أرقام.`, "!");
+  if(!isValidAccountLen(b, acc)){
+    if(showWarningToasts) showToast("الطول غير صحيح", b.manualOnly ? "ألصق BBAN كاملاً بطول 14 رقماً." : accountHintText(b), "!");
     return;
   }
 
   const out = calculateBBAN(b, acc);
   $("resultNum").textContent = out;
-
-  $("resultChunks").innerHTML = `
-    <div class="chunk-part"><div class="chunk-val">${esc(b.prefix || "—")}</div><div class="chunk-tag">سابقة Prefix</div></div>
-    <div class="chunk-part acc"><div class="chunk-val">${esc(acc)}</div><div class="chunk-tag">رقم الحساب (${acc.length} أرقام)</div></div>
-    <div class="chunk-part"><div class="chunk-val">${esc(b.suffix || "—")}</div><div class="chunk-tag">لاحقة Suffix</div></div>
-  `;
 
   if(window.QRGenerator){
     $("qrOutput").innerHTML = window.QRGenerator.generateSVG(out, 170);
@@ -220,25 +508,13 @@ $("copyBtn").onclick = async ()=>{
   }
 };
 
-$("copySpacesBtn").onclick = async ()=>{
-  const b = banks.find(x=>x.id===$("bankSelect").value);
-  const acc = $("account").value.trim();
-  if(!b || !acc) return;
-  const spaced = formatBBANWithSpaces(b, acc);
-  const ok = await copyTextToClipboard(spaced, "تم نسخ BBAN مع فواصل");
-  if(ok){
-    $("copySpacesBtn").textContent = "تم النسخ ✓";
-    setTimeout(()=>$("copySpacesBtn").textContent = "نسخ مع فواصل", 1200);
-  }
-};
-
 $("shareBtn").onclick = async ()=>{
   const b = banks.find(x=>x.id===$("bankSelect").value);
   const acc = $("account").value.trim();
   const bban = $("resultNum").textContent;
   if(!b || !acc || !bban) return;
 
-  const text = `تفاصيل الحساب البنكي:\n🏦 البنك: ${b.name}\n🔢 رقم الحساب: ${acc}\n💳 رقم BBAN:\n${bban}`;
+  const text = `تفاصيل الحساب البنكي:\n🏦 البنك: ${b.name}${b.appName ? ` — التطبيق: ${b.appName}` : ""}\n🔢 رقم الحساب: ${acc}\n💳 رقم BBAN:\n${bban}`;
   if(navigator.share){
     try{ await navigator.share({title: "رقم BBAN", text}); }catch(e){}
   } else {
@@ -262,9 +538,10 @@ $("toggleQrBtn").onclick = ()=>{
 $("resetBanks").onclick = ()=>{
   showConfirmModal(
     "استعادة البنوك الافتراضية",
-    "هل تريد استعادة قائمة البنوك الأساسية؟ سيتم تحديث بيانات البنوك الافتراضية مع الاحتفاظ بالبنوك المخصصة التي أضفتها.",
+    "هل تريد استعادة قائمة البنوك الأساسية؟ سيتم تحديث بيانات البنوك الافتراضية وإعادتها إلى الترتيب الافتراضي مع الاحتفاظ بالبنوك المخصصة التي أضفتها وحساباتك المحفوظة.",
     "استعادة",
     ()=>{
+      const idMap = normalizeBanks();
       DEFAULT_BANKS.forEach(def=>{
         const idx = banks.findIndex(b=>b.id === def.id || (b.name || "").trim() === def.name);
         if(idx !== -1){
@@ -273,11 +550,17 @@ $("resetBanks").onclick = ()=>{
           banks.push({...def});
         }
       });
+      applyDefaultOrder();
+      localStorage.setItem(ORDER_KEY, "default");
+      remapAccountBankIds(idMap);
+      normalizeSavedAccounts();
+      saveSavedAccounts();
       saveBanks();
       renderBanks();
       initSavedPage();
       showToast("تمت الاستعادة", "تمت استعادة قائمة البنوك الافتراضية بنجاح.");
-    }
+    },
+    "restore"
   );
 };
 
@@ -297,6 +580,7 @@ function isDuplicateBankName(name, excludeId){
 $("saveBank").onclick = ()=>{
   const data = {
     name: $("bName").value.trim(),
+    appName: $("bAppName").value.trim(),
     code: $("bCode").value.trim(),
     prefix: sanitizeDigits($("bPrefix").value.trim()),
     suffix: sanitizeDigits($("bSuffix").value.trim()),
@@ -327,7 +611,7 @@ $("saveBank").onclick = ()=>{
 };
 
 function clearBankForm(){
-  ["bName","bCode","bPrefix","bSuffix","bLen"].forEach(x=>$(x).value = "");
+  ["bName","bAppName","bCode","bPrefix","bSuffix","bLen"].forEach(x=>$(x).value = "");
 }
 
 window.editBank = id=>{
@@ -335,6 +619,7 @@ window.editBank = id=>{
   if(!b) return;
   editId = id;
   $("bName").value = b.name;
+  $("bAppName").value = b.appName || "";
   $("bCode").value = b.code;
   $("bPrefix").value = b.prefix;
   $("bSuffix").value = b.suffix;
@@ -382,10 +667,15 @@ function esc(s){
 }
 
 // Decoder / Reverse Lookup
+// Accepts a BBAN or an IBAN (2 letters + 2 check digits + BBAN). For an IBAN the first 4 characters are dropped.
+function cleanDecodeInput(v){
+  return String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
 $("decodeInput").addEventListener("input", (e)=>{
-  const c = sanitizeDigits(e.target.value);
+  const c = cleanDecodeInput(e.target.value);
   if(e.target.value !== c) e.target.value = c;
-  $("decodeCounter").textContent = `${c.length} رقم`;
+  $("decodeCounter").textContent = `${c.length} خانة`;
   if(c.length >= 7) doDecode(false);
 });
 
@@ -395,23 +685,53 @@ $("decodeInput").addEventListener("keydown", (e)=>{
 
 let lastDecodedData = null;
 
+// Finds every bank whose rules produce this BBAN; account = the full account number as the bank shows it
+function findBankMatches(bban){
+  const matches = [];
+  for(const b of banks){
+    if(b.manualOnly) continue;
+    const p = b.prefix || "";
+    const ap = b.accPrefix || "";
+    const s = b.suffix || "";
+    const expectedLen = p.length + ap.length + Number(b.len) + s.length;
+    if(bban.length === expectedLen && bban.startsWith(p + ap) && bban.endsWith(s)){
+      const core = bban.slice(p.length + ap.length, bban.length - s.length);
+      matches.push({bank: b, account: ap + core});
+    }
+  }
+  return matches;
+}
+
 function doDecode(showWarningToasts = true){
-  const bban = sanitizeDigits($("decodeInput").value);
-  if(!bban){
-    if(showWarningToasts) showToast("أدخل رقم BBAN", "يرجى لصق أو كتابة رقم BBAN المراد تفكيكه.", "!");
+  const raw = cleanDecodeInput($("decodeInput").value);
+  if(!raw){
+    if(showWarningToasts) showToast("أدخل رقم BBAN أو IBAN", "يرجى لصق أو كتابة رقم BBAN أو IBAN المراد تفكيكه.", "!");
     $("decodeResult").style.display = "none";
     return;
   }
 
-  // Find candidate bank
-  const matches = [];
-  for(const b of banks){
-    const p = b.prefix || "";
-    const s = b.suffix || "";
-    const expectedLen = p.length + Number(b.len) + s.length;
-    if(bban.length === expectedLen && bban.startsWith(p) && bban.endsWith(s)){
-      const acc = bban.slice(p.length, bban.length - (s.length || undefined));
-      matches.push({bank: b, account: acc});
+  let bban = raw;
+  let note = "";
+  let matches = [];
+  if(/^[A-Z]{2}\d{2}/.test(raw)){
+    // IBAN: drop the country code and check digits (first 4 characters)
+    bban = raw.slice(4);
+    note = `تم التعرّف على IBAN وحذف أول 4 خانات (${raw.slice(0,4)}) — رقم BBAN: ${bban}`;
+  }
+  if(!/^\d+$/.test(bban)){
+    if(showWarningToasts) showToast("رقم غير صحيح", "استخدم أرقام BBAN أو IBAN صحيحاً دون رموز إضافية.", "!");
+    $("decodeResult").style.display = "none";
+    lastDecodedData = null;
+    return;
+  }
+  matches = findBankMatches(bban);
+  if(!matches.length && !note && /^\d+$/.test(raw) && raw.length > 4){
+    // Digits only but no BBAN match: maybe an IBAN typed without the letters
+    const alt = findBankMatches(raw.slice(4));
+    if(alt.length){
+      matches = alt;
+      bban = raw.slice(4);
+      note = `تم حذف أول 4 خانات (IBAN) — رقم BBAN: ${bban}`;
     }
   }
 
@@ -427,10 +747,12 @@ function doDecode(showWarningToasts = true){
   const match = matches[0];
   lastDecodedData = match;
 
-  $("decodeBankName").textContent = match.bank.name;
+  $("decodeBankName").textContent = match.bank.appName ? `${match.bank.name} — ${match.bank.appName}` : match.bank.name;
   $("decodePrefix").textContent = match.bank.prefix || "—";
   $("decodeAccount").textContent = match.account;
   $("decodeSuffix").textContent = match.bank.suffix || "—";
+  $("decodeNote").textContent = note;
+  $("decodeNote").classList.toggle("hidden", !note);
   $("decodeResult").style.display = "block";
 }
 
@@ -459,34 +781,20 @@ $("decodeSaveVault").onclick = ()=>{
 function populateVaultBanks(){
   const sel = $("vBank");
   const currVal = sel.value;
-  sel.innerHTML = banks.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join("");
+  sel.innerHTML = bankOptionsHTML();
   if(banks.some(b=>b.id===currVal)) sel.value = currVal;
+  vaultDD.render();
   updateVaultHint();
   updateVaultAccountCounter();
 }
 
 function updateVaultHint(){
   const b = banks.find(x=>x.id===$("vBank").value);
-  $("vBankHint").textContent = b
-    ? `الحساب يجب أن يكون ${b.len} أرقام — BBAN = ${b.prefix} + رقم الحساب + ${b.suffix}`
-    : "أضف بنكاً أولاً من صفحة البنوك.";
+  $("vBankHint").textContent = accountHintText(b);
 }
 
 function updateVaultAccountCounter(){
-  const b = banks.find(x=>x.id===$("vBank").value);
-  const acc = $("vAccount").value;
-  const counter = $("vAccountCounter");
-  const reqLen = b ? Number(b.len) : 0;
-  
-  counter.textContent = `${acc.length} / ${reqLen}`;
-  counter.classList.remove("done", "overflow");
-
-  if(!reqLen) return;
-  if(acc.length === reqLen){
-    counter.classList.add("done");
-  } else if(acc.length > reqLen){
-    counter.classList.add("overflow");
-  }
+  setCounter($("vAccountCounter"), banks.find(x=>x.id===$("vBank").value), $("vAccount").value);
 }
 
 $("vAccount").addEventListener("input", (e)=>{
@@ -531,6 +839,7 @@ function renderVault(){
 
   $("vaultList").innerHTML = filtered.map(x=>{
     const b = banks.find(bank=>bank.id===x.bankId);
+    const lenOk = !!b && isValidAccountLen(b, x.account);
     const bban = b ? calculateBBAN(b, x.account) : "";
     const bankName = b ? b.name : "بنك غير موجود";
     return `
@@ -547,12 +856,12 @@ function renderVault(){
       </div>
       <div style="margin-top:9px;padding:12px;background:var(--result-bg);border:1px solid var(--border);border-radius:12px">
         <div style="font-size:12px;color:var(--muted);margin-bottom:4px">BBAN</div>
-        <div class="mono" style="font-size:19px;font-weight:800;word-break:break-all">${b ? esc(bban) : '<span style="color:var(--danger)">تعذر الحساب — البنك المرتبط لم يعد موجودًا</span>'}</div>
+        <div class="mono" style="font-size:19px;font-weight:800;word-break:break-all">${!b ? '<span style="color:var(--danger)">تعذر الحساب — البنك المرتبط لم يعد موجودًا</span>' : lenOk ? esc(bban) : `<span style="color:var(--danger);font-size:14px;font-weight:700">طول رقم الحساب (${String(x.account).length}) لا يطابق صيغة البنك الحالية (${b.accPrefix ? b.len + " أو " + (b.len + b.accPrefix.length) : b.len} أرقام) — اضغط تعديل وصحّح الرقم</span>`}</div>
       </div>
       <div class="actions" style="margin-top:12px">
-        <button class="btn primary" style="flex:1" onclick="copyVault('${x.id}')" ${b?"":"disabled"}>📋 نسخ BBAN</button>
-        <button class="btn secondary" onclick="openVaultQr('${x.id}')" ${b?"":"disabled"}>📱 رمز QR</button>
-        <button class="btn secondary" onclick="shareVault('${x.id}')" ${b?"":"disabled"}>📤 مشاركة</button>
+        <button class="btn primary" style="flex:1" onclick="copyVault('${x.id}')" ${lenOk?"":"disabled"}>📋 نسخ BBAN</button>
+        <button class="btn secondary" onclick="openVaultQr('${x.id}')" ${lenOk?"":"disabled"}>📱 رمز QR</button>
+        <button class="btn secondary" onclick="shareVault('${x.id}')" ${lenOk?"":"disabled"}>📤 مشاركة</button>
         <button class="btn secondary" onclick="editVault('${x.id}')">✏️ تعديل</button>
         <button class="btn danger" onclick="removeVault('${x.id}')">🗑 حذف</button>
       </div>
@@ -578,9 +887,9 @@ $("addVault").onclick = ()=>{
   if(!b){showToast("لا يوجد بنك", "أضف بنكاً أولاً من صفحة البنوك.", "!");return;}
   if(!name){showToast("اسم الحساب مطلوب", "أدخل اسمًا للحساب المحفوظ.", "!");return;}
   if(!/^\d+$/.test(account)){showToast("رقم الحساب غير صحيح", "استخدم الأرقام فقط دون مسافات أو رموز.", "!");return;}
-  if(account.length !== Number(b.len)){showToast("طول رقم الحساب غير صحيح", `يجب أن يكون رقم الحساب ${b.len} أرقام.`, "!");return;}
+  if(!isValidAccountLen(b, account)){showToast("طول رقم الحساب غير صحيح", accountHintText(b), "!");return;}
 
-  const data = {name, bankId, account};
+  const data = {name, bankId, account: normalizeAccount(b, account)};
   const wasVaultEdit = !!vaultEditId;
 
   if(vaultEditId){
@@ -634,6 +943,7 @@ function showToast(title="تمت العملية بنجاح", sub="تم تنفي�
   $("toastTitle").textContent = title;
   $("toastSub").textContent = sub;
   t.querySelector(".toastIcon").textContent = icon;
+  t.classList.toggle("warn", icon === "!");
   t.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=>t.classList.remove("show"), 2500);
@@ -710,8 +1020,6 @@ $("importVault").onchange = async e=>{
           banks.push(importedBank);
         }
       });
-      saveBanks();
-      renderBanks();
     }
 
     const accounts = Array.isArray(data) ? data : (data.accounts || data.vaults || data.savedAccounts || []);
@@ -737,7 +1045,13 @@ $("importVault").onchange = async e=>{
       }
     });
 
+    // Clean up duplicate/legacy banks that may come from older backups, keeping saved accounts linked
+    const idMap = normalizeBanks();
+    remapAccountBankIds(idMap);
+    normalizeSavedAccounts();
+    saveBanks();
     saveSavedAccounts();
+    renderBanks();
     initSavedPage();
     showToast("تم الاستيراد بنجاح", `تمت إضافة ${addedCount} وتحديث ${updatedCount} من الحسابات، دون حذف أي بيانات موجودة.`);
   } catch(err){
@@ -746,6 +1060,169 @@ $("importVault").onchange = async e=>{
     e.target.value = "";
   }
 };
+
+// ---- QR scanner (camera or image) — reads an account number, BBAN or IBAN
+let scanStream = null, scanTimer = 0, scanCallback = null, scanOpen = false;
+const scanCanvas = document.createElement("canvas");
+const scanCtx = scanCanvas.getContext("2d", {willReadFrequently:true});
+
+// Extracts an IBAN (2 letters + 2 check digits + digits) or the longest digit run from scanned text
+function parseScanned(text){
+  const clean = String(text || "").toUpperCase().replace(/[\s\-]/g, "");
+  const ib = clean.match(/[A-Z]{2}\d{2}\d{10,30}/);
+  if(ib) return {kind:"iban", iban:ib[0], bban:ib[0].slice(4)};
+  const runs = (clean.match(/\d+/g) || []).filter(r=>r.length >= 4).sort((a,b)=>b.length - a.length);
+  return runs.length ? {kind:"digits", digits:runs[0]} : null;
+}
+
+function setScanMsg(msg){
+  $("scanMsg").textContent = msg || "";
+  $("scanMsg").classList.toggle("hidden", !msg);
+}
+
+function stopScanStream(){
+  clearTimeout(scanTimer);
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream = null; }
+  const v = $("scanVideo");
+  try{ v.pause(); }catch(e){}
+  v.srcObject = null;
+}
+
+function closeScanner(){
+  scanOpen = false;
+  stopScanStream();
+  $("scanModal").classList.remove("show");
+  $("scanModal").setAttribute("aria-hidden", "true");
+}
+
+function finishScan(text){
+  const cb = scanCallback;
+  closeScanner();
+  if(cb) cb(text);
+}
+
+function decodeImageData(data, w, h, both){
+  if(typeof jsQR !== "function") return null;
+  const r = jsQR(data, w, h, {inversionAttempts: both ? "attemptBoth" : "dontInvert"});
+  return r && r.data ? r.data : null;
+}
+
+function scanLoop(){
+  if(!scanOpen || !scanStream) return;
+  const v = $("scanVideo");
+  if(v.readyState >= 2 && v.videoWidth){
+    const scale = Math.min(1, 640 / Math.max(v.videoWidth, v.videoHeight));
+    const w = Math.round(v.videoWidth * scale), h = Math.round(v.videoHeight * scale);
+    scanCanvas.width = w; scanCanvas.height = h;
+    scanCtx.drawImage(v, 0, 0, w, h);
+    const text = decodeImageData(scanCtx.getImageData(0, 0, w, h).data, w, h, false);
+    if(text){ finishScan(text); return; }
+  }
+  scanTimer = setTimeout(scanLoop, 120);
+}
+
+async function startScanCamera(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    setScanMsg("الكاميرا غير متاحة (يلزم فتح التطبيق عبر HTTPS). يمكنك اختيار صورة تحتوي على رمز QR.");
+    return;
+  }
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}}, audio:false});
+    if(!scanOpen){ stream.getTracks().forEach(t=>t.stop()); return; }
+    scanStream = stream;
+    const v = $("scanVideo");
+    v.srcObject = stream;
+    await v.play();
+    scanLoop();
+  }catch(e){
+    const denied = e && (e.name === "NotAllowedError" || e.name === "SecurityError");
+    setScanMsg(denied ? "تم رفض إذن الكاميرا. اسمح بالوصول للكاميرا من إعدادات المتصفح، أو اختر صورة تحتوي على رمز QR."
+                      : "تعذر تشغيل الكاميرا. يمكنك اختيار صورة تحتوي على رمز QR.");
+  }
+}
+
+function openScanner(onResult){
+  scanCallback = onResult;
+  scanOpen = true;
+  setScanMsg("");
+  $("scanModal").classList.add("show");
+  $("scanModal").setAttribute("aria-hidden", "false");
+  startScanCamera();
+}
+
+$("scanClose").onclick = closeScanner;
+$("scanModal").addEventListener("click", e=>{ if(e.target === $("scanModal")) closeScanner(); });
+document.addEventListener("keydown", e=>{ if(e.key === "Escape" && scanOpen) closeScanner(); });
+
+$("scanFile").onchange = async e=>{
+  const file = e.target.files[0];
+  e.target.value = "";
+  if(!file) return;
+  try{
+    const url = URL.createObjectURL(file);
+    const img = await new Promise((res, rej)=>{ const i = new Image(); i.onload = ()=>res(i); i.onerror = rej; i.src = url; });
+    let text = null;
+    for(const max of [1200, 800, 500]){
+      const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale));
+      scanCanvas.width = w; scanCanvas.height = h;
+      scanCtx.fillStyle = "#fff"; scanCtx.fillRect(0, 0, w, h);
+      scanCtx.drawImage(img, 0, 0, w, h);
+      text = decodeImageData(scanCtx.getImageData(0, 0, w, h).data, w, h, true);
+      if(text) break;
+    }
+    URL.revokeObjectURL(url);
+    if(text) finishScan(text);
+    else setScanMsg("لم يتم العثور على رمز QR في هذه الصورة. جرّب صورة أوضح.");
+  }catch(err){
+    setScanMsg("تعذر قراءة الصورة.");
+  }
+};
+
+// Generator: fills bank + account from a scanned account number, BBAN or IBAN
+function applyScanToGenerator(text){
+  const p = parseScanned(text);
+  if(!p){ showToast("لم تتم قراءة رقم", "الرمز لا يحتوي على رقم حساب أو BBAN أو IBAN.", "!"); return; }
+  const bban = p.kind === "iban" ? p.bban : p.digits;
+  const matches = findBankMatches(bban);
+  if(matches.length){
+    const cur = $("bankSelect").value;
+    const m = matches.find(x=>x.bank.id === cur) || matches[0];
+    $("bankSelect").value = m.bank.id;
+    $("bankSelect").dispatchEvent(new Event("change", {bubbles:true}));
+    $("account").value = m.account;
+    updateAccountCounter();
+    doGenerate(true);
+    showToast("تمت قراءة الرمز", `${m.bank.name}${p.kind === "iban" ? " — تم تحويل IBAN إلى BBAN" : ""}`);
+    return;
+  }
+  if(p.kind === "iban"){
+    showToast("لم يتم العثور على بنك مطابق", "تأكد من أن قواعد البنك مضافة في صفحة البنوك.", "!");
+    return;
+  }
+  // Plain account number for the selected bank
+  const b = banks.find(x=>x.id === $("bankSelect").value);
+  $("account").value = p.digits;
+  updateAccountCounter();
+  if(b && isValidAccountLen(b, p.digits)){
+    doGenerate(true);
+    showToast("تمت قراءة الرمز", "تم إدخال رقم الحساب.");
+  } else {
+    showToast("تمت قراءة رقم", "طوله لا يطابق البنك المحدد — اختر البنك الصحيح أو راجع الرقم.", "!");
+  }
+}
+
+// Decoder: puts the scanned BBAN/IBAN into the input and decodes it
+function applyScanToDecoder(text){
+  const p = parseScanned(text);
+  if(!p){ showToast("لم تتم قراءة رقم", "الرمز لا يحتوي على BBAN أو IBAN.", "!"); return; }
+  $("decodeInput").value = p.kind === "iban" ? p.iban : p.digits;
+  $("decodeInput").dispatchEvent(new Event("input", {bubbles:true}));
+  doDecode(true);
+}
+
+$("scanGenBtn").onclick = ()=>openScanner(applyScanToGenerator);
+$("scanDecBtn").onclick = ()=>openScanner(applyScanToDecoder);
 
 function initSavedPage(){
   populateVaultBanks();

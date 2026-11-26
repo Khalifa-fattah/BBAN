@@ -1,12 +1,15 @@
-const CACHE_NAME = 'bban-cache-v4';
+const CACHE_NAME = 'bban-cache-v9';
 const ASSETS = [
   './',
   'index.html',
   'style.css',
   'qr.js',
+  'jsQR.js',
   'app.js',
   'manifest.webmanifest',
-  'icon.png'
+  'icon.png',
+  'icon-192.png',
+  'icon-512.png'
 ];
 
 self.addEventListener('install', event => {
